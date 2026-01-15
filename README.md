@@ -48,10 +48,10 @@ Learn more:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run locally
-npm run dev
+pnpm dev
 ```
 
 Then open http://localhost:8787
@@ -61,6 +61,7 @@ Then open http://localhost:8787
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18+)
+- [pnpm](https://pnpm.io/) (`npm install -g pnpm`)
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
 - Cloudflare account
 
@@ -80,7 +81,7 @@ Then open http://localhost:8787
 
 3. **Deploy**:
    ```bash
-   npm run deploy
+   pnpm deploy
    ```
 
 Your site will be available at `https://realtimekit-sfu-demo.<your-subdomain>.workers.dev`
