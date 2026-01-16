@@ -19,7 +19,6 @@ An interactive visualization demonstrating how RealtimeKit uses Cloudflare's glo
   - **Full Mesh**: All participants connected through their nearest DCs
   - **Speaker Mode**: Star topology with one broadcaster
 - **Pan & Zoom**: Scroll to zoom, drag to pan, double-click to zoom in
-- **Animated Demo**: Watch participants join from around the world
 
 ## How It Works
 
