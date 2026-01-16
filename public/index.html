@@ -181,14 +181,13 @@
 
     .land {
       fill: #1e3a5f;
-      stroke: #2d4a6f;
-      stroke-width: 0.3;
+      stroke: none;
     }
 
     .graticule {
       fill: none;
-      stroke: rgba(255, 255, 255, 0.05);
-      stroke-width: 0.3;
+      stroke: rgba(255, 255, 255, 0.03);
+      stroke-width: 0.5;
     }
 
     .dc-marker {
@@ -540,21 +539,13 @@
               </svg>
               Add Random Participant
             </button>
-            <div class="btn-row">
-              <button class="btn btn-secondary" id="btn-demo">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                Demo
-              </button>
-              <button class="btn btn-danger" id="btn-clear">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-                Clear
-              </button>
-            </div>
+            <button class="btn btn-danger" id="btn-clear">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              Clear All
+            </button>
           </div>
         </div>
 
@@ -740,8 +731,6 @@
     let participantIdCounter = 0;
     let mode = 'mesh';
     let speakerId = null;
-    let demoRunning = false;
-    let demoTimeout = null;
 
     // Zoom/Pan state
     let viewBox = { x: 0, y: 0, w: SVG_WIDTH, h: SVG_HEIGHT };
@@ -866,12 +855,15 @@
 
     async function drawWorldMap(group) {
       try {
-        const resp = await fetch('https://unpkg.com/world-atlas@2/land-110m.json');
+        // Use countries GeoJSON for cleaner rendering
+        const resp = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
         const topo = await resp.json();
-        const land = topojsonFeature(topo, topo.objects.land);
+        const countries = topojsonMesh(topo, topo.objects.countries);
+        const land = topojsonMerge(topo, topo.objects.countries.geometries);
         
-        for (const feat of land.features || [land]) {
-          const pathData = geoPathFromFeature(feat);
+        // Draw land mass as filled shape
+        if (land) {
+          const pathData = geoPathFromGeometry(land);
           if (pathData) {
             group.appendChild(createSVGElement('path', { d: pathData, class: 'land' }));
           }
@@ -882,57 +874,120 @@
       }
     }
 
-    function topojsonFeature(topology, obj) {
-      if (obj.type === 'GeometryCollection') {
-        return { type: 'FeatureCollection', features: obj.geometries.map(g => ({ type: 'Feature', geometry: topojsonGeometry(topology, g) })) };
-      }
-      return { type: 'Feature', geometry: topojsonGeometry(topology, obj) };
-    }
-
-    function topojsonGeometry(topology, obj) {
+    // Simplified TopoJSON helpers
+    function topojsonMerge(topology, geometries) {
       const arcs = topology.arcs;
-      const arcToCoords = (idx) => {
-        const arc = arcs[idx < 0 ? ~idx : idx];
-        let coords = [], x = 0, y = 0;
-        for (const [dx, dy] of arc) {
-          x += dx; y += dy;
-          coords.push([x * topology.transform.scale[0] + topology.transform.translate[0], y * topology.transform.scale[1] + topology.transform.translate[1]]);
+      const transform = topology.transform;
+      
+      function decodeArc(arcIdx) {
+        const arc = arcs[arcIdx < 0 ? ~arcIdx : arcIdx];
+        const coords = [];
+        let x = 0, y = 0;
+        for (const point of arc) {
+          x += point[0];
+          y += point[1];
+          coords.push([
+            x * transform.scale[0] + transform.translate[0],
+            y * transform.scale[1] + transform.translate[1]
+          ]);
         }
-        return idx < 0 ? coords.reverse() : coords;
-      };
-      const ringToCoords = (ring) => {
-        let coords = [];
-        for (const idx of ring) {
-          const ac = arcToCoords(idx);
-          coords = coords.concat(ac.slice(coords.length ? 1 : 0));
+        return arcIdx < 0 ? coords.reverse() : coords;
+      }
+      
+      function decodeRing(ring) {
+        const coords = [];
+        for (const arcIdx of ring) {
+          const arcCoords = decodeArc(arcIdx);
+          // Skip first point if not first arc (avoid duplicates)
+          const start = coords.length > 0 ? 1 : 0;
+          for (let i = start; i < arcCoords.length; i++) {
+            coords.push(arcCoords[i]);
+          }
         }
         return coords;
-      };
-      if (obj.type === 'Polygon') return { type: 'Polygon', coordinates: obj.arcs.map(ringToCoords) };
-      if (obj.type === 'MultiPolygon') return { type: 'MultiPolygon', coordinates: obj.arcs.map(p => p.map(ringToCoords)) };
-      return obj;
+      }
+      
+      const polygons = [];
+      for (const geom of geometries) {
+        if (geom.type === 'Polygon') {
+          polygons.push(geom.arcs.map(decodeRing));
+        } else if (geom.type === 'MultiPolygon') {
+          for (const poly of geom.arcs) {
+            polygons.push(poly.map(decodeRing));
+          }
+        }
+      }
+      
+      return { type: 'MultiPolygon', coordinates: polygons };
     }
 
-    function geoPathFromFeature(feat) {
-      const geom = feat.geometry || feat;
-      const toPath = (coords) => coords.map(([lng, lat], i) => {
-        const { x, y } = latLngToXY(lat, lng);
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-      }).join(' ') + ' Z';
+    function topojsonMesh(topology, obj) {
+      return topojsonMerge(topology, obj.geometries || [obj]);
+    }
+
+    function geoPathFromGeometry(geom) {
+      const toPath = (ring) => {
+        if (!ring || ring.length < 3) return '';
+        
+        // Split ring at antimeridian crossings to avoid lines spanning the map
+        const segments = [];
+        let currentSegment = [];
+        
+        for (let i = 0; i < ring.length; i++) {
+          const [lng, lat] = ring[i];
+          const prevLng = i > 0 ? ring[i - 1][0] : null;
+          
+          // Detect antimeridian crossing (jump > 180 degrees)
+          if (prevLng !== null && Math.abs(lng - prevLng) > 180) {
+            // End current segment and start new one
+            if (currentSegment.length > 0) {
+              segments.push(currentSegment);
+              currentSegment = [];
+            }
+          }
+          
+          currentSegment.push([lng, lat]);
+        }
+        
+        if (currentSegment.length > 0) {
+          segments.push(currentSegment);
+        }
+        
+        // Convert segments to path strings
+        return segments.map(seg => {
+          if (seg.length < 2) return '';
+          return seg.map(([lng, lat], i) => {
+            const { x, y } = latLngToXY(lat, lng);
+            return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+          }).join('');
+        }).filter(Boolean).join('');
+      };
       
-      if (geom.type === 'Polygon') return geom.coordinates.map(toPath).join(' ');
-      if (geom.type === 'MultiPolygon') return geom.coordinates.map(p => p.map(toPath).join(' ')).join(' ');
+      if (geom.type === 'Polygon') {
+        return geom.coordinates.map(toPath).filter(Boolean).join('');
+      }
+      if (geom.type === 'MultiPolygon') {
+        return geom.coordinates.map(poly => poly.map(toPath).filter(Boolean).join('')).join('');
+      }
       return '';
     }
 
     function drawGraticule(group) {
-      for (let lng = -180; lng <= 180; lng += 30) {
+      // Subtle longitude lines every 60 degrees
+      for (let lng = -120; lng <= 120; lng += 60) {
         const p1 = latLngToXY(MAP_BOUNDS.maxLat, lng), p2 = latLngToXY(MAP_BOUNDS.minLat, lng);
-        group.appendChild(createSVGElement('path', { d: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`, class: 'graticule' }));
+        group.appendChild(createSVGElement('line', { 
+          x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, 
+          class: 'graticule' 
+        }));
       }
-      for (let lat = -60; lat <= 80; lat += 20) {
+      // Subtle latitude lines: equator and tropics
+      for (const lat of [-30, 0, 30, 60]) {
         const p1 = latLngToXY(lat, MAP_BOUNDS.minLng), p2 = latLngToXY(lat, MAP_BOUNDS.maxLng);
-        group.appendChild(createSVGElement('path', { d: `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`, class: 'graticule' }));
+        group.appendChild(createSVGElement('line', { 
+          x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, 
+          class: 'graticule' 
+        }));
       }
     }
 
@@ -1308,72 +1363,6 @@
 
 
     // =====================================================
-    // DEMO
-    // =====================================================
-
-    function runDemo() {
-      if (demoRunning) { stopDemo(); return; }
-      
-      demoRunning = true;
-      document.getElementById('btn-demo').innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-        </svg>
-        Stop
-      `;
-      
-      clearParticipants();
-      document.getElementById('click-hint').classList.add('hidden');
-      
-      const locs = [
-        { lat: 37.77, lng: -122.42, delay: 1200, zoom: 2.5 },   // San Francisco
-        { lat: 51.51, lng: -0.13, delay: 1200, zoom: 2.5 },     // London
-        { lat: 35.68, lng: 139.65, delay: 1200, zoom: 2.5 },    // Tokyo
-        { lat: -33.87, lng: 151.21, delay: 1200, zoom: 2.5 },   // Sydney
-        { lat: 52.37, lng: 4.90, delay: 1200, zoom: 2.5 },      // Amsterdam
-        { lat: 1.35, lng: 103.82, delay: 1200, zoom: 2.5 },     // Singapore
-        { lat: 40.69, lng: -74.17, delay: 1200, zoom: 2.5 },    // New York
-        { lat: 19.08, lng: 72.88, delay: 1200, zoom: 2.5 },     // Mumbai
-        { lat: -23.55, lng: -46.63, delay: 1200, zoom: 2.5 },   // Sao Paulo
-        { lat: 25.20, lng: 55.27, delay: 1500, zoom: 2.5 },     // Dubai
-      ];
-      
-      let i = 0;
-      function next() {
-        if (!demoRunning || i >= locs.length) { 
-          // Zoom out to show full map at the end
-          if (demoRunning) setTimeout(() => resetZoom(), 500);
-          stopDemo(); 
-          return; 
-        }
-        const loc = locs[i];
-        addParticipant(loc.lat, loc.lng);
-        zoomToPoint(loc.lat, loc.lng, loc.zoom);
-        i++;
-        if (i < locs.length) demoTimeout = setTimeout(next, loc.delay);
-        else {
-          // Final zoom out
-          demoTimeout = setTimeout(() => {
-            resetZoom();
-            stopDemo();
-          }, 1500);
-        }
-      }
-      next();
-    }
-
-    function stopDemo() {
-      demoRunning = false;
-      if (demoTimeout) { clearTimeout(demoTimeout); demoTimeout = null; }
-      document.getElementById('btn-demo').innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="5 3 19 12 5 21 5 3"/>
-        </svg>
-        Demo
-      `;
-    }
-
-    // =====================================================
     // INIT
     // =====================================================
 
@@ -1390,8 +1379,7 @@
         addParticipant(loc.lat, loc.lng);
         document.getElementById('click-hint').classList.add('hidden');
       });
-      document.getElementById('btn-demo').addEventListener('click', runDemo);
-      document.getElementById('btn-clear').addEventListener('click', () => { stopDemo(); clearParticipants(); });
+      document.getElementById('btn-clear').addEventListener('click', clearParticipants);
       
       // Zoom buttons
       document.getElementById('zoom-in').addEventListener('click', zoomIn);
