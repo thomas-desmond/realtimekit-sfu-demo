@@ -3,6 +3,10 @@ const SVG_WIDTH = 1000;
 const SVG_HEIGHT = 500;
 const MAP_BOUNDS = { minLat: -60, maxLat: 85, minLng: -180, maxLng: 180 };
 
+// Performance thresholds - disable animations above these counts
+const ANIMATION_THRESHOLD_PARTICIPANTS = 10;
+const ANIMATION_THRESHOLD_CONNECTIONS = 15;
+
 // =====================================================
 // STATE
 // =====================================================
@@ -299,17 +303,37 @@ function addParticipant(lat, lng, isSpeaker = false) {
   
   if (mode === 'speaker' && p.isSpeaker) speakerId = id;
   
+  // Check if we're crossing animation threshold
+  const wasAnimated = participants.length <= ANIMATION_THRESHOLD_PARTICIPANTS;
+  
   participants.push(p);
   drawParticipant(p);
+  
+  // If we just crossed the threshold, remove animations from existing participants
+  const isAnimated = participants.length <= ANIMATION_THRESHOLD_PARTICIPANTS;
+  if (wasAnimated && !isAnimated) {
+    disableParticipantAnimations();
+  }
+  
   updateConnections();
   updateStats();
   return p;
 }
 
+function disableParticipantAnimations() {
+  const pulses = gParticipants.querySelectorAll('.participant-pulse.animated');
+  pulses.forEach(el => el.classList.remove('animated'));
+}
+
 function drawParticipant(p) {
   const { x, y } = latLngToXY(p.lat, p.lng);
   const g = createSVGElement('g', { class: 'participant-marker', 'data-id': p.id });
-  g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 3, class: `participant-pulse ${p.isSpeaker ? 'speaker' : ''}` }));
+  
+  // Only animate pulse for small number of participants
+  const shouldAnimate = participants.length <= ANIMATION_THRESHOLD_PARTICIPANTS;
+  const pulseClass = `participant-pulse ${p.isSpeaker ? 'speaker' : ''} ${shouldAnimate ? 'animated' : ''}`;
+  
+  g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 3, class: pulseClass }));
   g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 4, class: `participant-dot ${p.isSpeaker ? 'speaker' : ''}` }));
   
   const dist = Math.round(haversineDistance(p.lat, p.lng, p.dc.lat, p.dc.lng));
@@ -336,11 +360,29 @@ function updateStats() {
 // CONNECTIONS
 // =====================================================
 
+// Cache for datacenter lookups
+const dcCache = new Map();
+function getDC(id) {
+  if (!dcCache.has(id)) {
+    dcCache.set(id, DATACENTERS.find(d => d.id === id));
+  }
+  return dcCache.get(id);
+}
+
 function updateConnections() {
   gConnections.innerHTML = '';
   if (participants.length === 0) return;
   
-  // User to DC
+  const activeDCs = [...new Set(participants.map(p => p.dcId))];
+  const connectionCount = mode === 'mesh' 
+    ? (activeDCs.length * (activeDCs.length - 1)) / 2 
+    : activeDCs.length - 1;
+  
+  // Only animate if few connections
+  const shouldAnimate = connectionCount <= ANIMATION_THRESHOLD_CONNECTIONS;
+  const dcLineClass = `connection-line dc-dc-line${shouldAnimate ? ' animated' : ''}`;
+  
+  // User to DC connections
   for (const p of participants) {
     const pPos = latLngToXY(p.lat, p.lng);
     const dcPos = latLngToXY(p.dc.lat, p.dc.lng);
@@ -350,19 +392,17 @@ function updateConnections() {
     }));
   }
   
-  // DC to DC
+  // DC to DC connections
   if (participants.length >= 2) {
-    const activeDCs = [...new Set(participants.map(p => p.dcId))];
-    
     if (mode === 'mesh') {
       for (let i = 0; i < activeDCs.length; i++) {
         for (let j = i + 1; j < activeDCs.length; j++) {
-          const dc1 = DATACENTERS.find(d => d.id === activeDCs[i]);
-          const dc2 = DATACENTERS.find(d => d.id === activeDCs[j]);
+          const dc1 = getDC(activeDCs[i]);
+          const dc2 = getDC(activeDCs[j]);
           const p1 = latLngToXY(dc1.lat, dc1.lng), p2 = latLngToXY(dc2.lat, dc2.lng);
           gConnections.appendChild(createSVGElement('path', {
             d: createCurvedPath(p1.x, p1.y, p2.x, p2.y, 0.1),
-            class: 'connection-line dc-dc-line'
+            class: dcLineClass
           }));
         }
       }
@@ -372,11 +412,11 @@ function updateConnections() {
         const sPos = latLngToXY(speaker.dc.lat, speaker.dc.lng);
         for (const dcId of activeDCs) {
           if (dcId !== speaker.dc.id) {
-            const dc = DATACENTERS.find(d => d.id === dcId);
+            const dc = getDC(dcId);
             const dPos = latLngToXY(dc.lat, dc.lng);
             gConnections.appendChild(createSVGElement('path', {
               d: createCurvedPath(sPos.x, sPos.y, dPos.x, dPos.y, 0.1),
-              class: 'connection-line dc-dc-line'
+              class: dcLineClass
             }));
           }
         }

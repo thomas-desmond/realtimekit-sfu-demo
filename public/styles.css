@@ -191,8 +191,6 @@ header {
 
 .dc-dot {
   fill: var(--cf-orange);
-  filter: drop-shadow(0 0 3px var(--cf-orange));
-  transition: r 0.2s ease;
 }
 
 .dc-marker:hover .dc-dot {
@@ -213,24 +211,26 @@ header {
 
 .participant-dot {
   fill: var(--participant-blue);
-  filter: drop-shadow(0 0 4px var(--participant-blue));
 }
 
 .participant-dot.speaker {
   fill: var(--participant-green);
-  filter: drop-shadow(0 0 4px var(--participant-green));
 }
 
+/* Pulse animation only shown for small number of participants */
 .participant-pulse {
   fill: none;
   stroke: var(--participant-blue);
   stroke-width: 1;
   opacity: 0;
-  animation: pulse 2s ease-out infinite;
 }
 
 .participant-pulse.speaker {
   stroke: var(--participant-green);
+}
+
+.participant-pulse.animated {
+  animation: pulse 2s ease-out infinite;
 }
 
 @keyframes pulse {
@@ -255,6 +255,10 @@ header {
   stroke-width: 1;
   stroke-dasharray: 4, 2;
   opacity: 0.6;
+}
+
+/* Animated dash only when few connections */
+.dc-dc-line.animated {
   animation: dash 1s linear infinite;
 }
 
