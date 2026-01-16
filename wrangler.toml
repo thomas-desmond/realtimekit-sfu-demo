@@ -1,7 +1,7 @@
-name = "realtimekit-sfu-demo"
-account_id = "6ea501058781ea3447393e05a0296f58"
+name = "realtime-sfu"
+account_id = "4ada3fc2e7dcf09a09749af670622778"
 main = "src/worker.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-01-15"
 
 [site]
 bucket = "./public"
