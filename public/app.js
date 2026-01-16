@@ -317,7 +317,18 @@ function addParticipant(lat, lng, isSpeaker = false) {
   
   updateConnections();
   updateStats();
+  
+  // On mobile, collapse sidebar when user adds participant
+  collapseMobileSidebar();
+  
   return p;
+}
+
+// Collapse sidebar on mobile (when user interacts with map)
+function collapseMobileSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar || window.innerWidth > 768) return;
+  sidebar.classList.remove('expanded');
 }
 
 function disableParticipantAnimations() {
@@ -724,4 +735,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomOut(); }
     if (e.key === '0') { e.preventDefault(); resetZoom(); }
   });
+  
+  // Mobile sidebar toggle
+  const sidebar = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('expanded');
+    });
+    
+    // Swipe to expand/collapse on mobile
+    let touchStartY = 0;
+    sidebar.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    sidebar.addEventListener('touchend', (e) => {
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaY = touchStartY - touchEndY;
+      
+      // Swipe up to expand, swipe down to collapse
+      if (deltaY > 50 && !sidebar.classList.contains('expanded')) {
+        sidebar.classList.add('expanded');
+      } else if (deltaY < -50 && sidebar.classList.contains('expanded')) {
+        sidebar.classList.remove('expanded');
+      }
+    }, { passive: true });
+  }
 });

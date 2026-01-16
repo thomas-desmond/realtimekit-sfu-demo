@@ -478,10 +478,193 @@ header {
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-text { color: var(--cf-gray-400); font-size: 14px; }
 
-/* Responsive */
+/* Hide sidebar toggle on desktop */
+.sidebar-toggle {
+  display: none;
+}
+
+/* Responsive - Mobile */
 @media (max-width: 768px) {
-  .main-content { flex-direction: column; }
-  .sidebar { width: 100%; max-height: 180px; flex-direction: row; flex-wrap: wrap; }
-  .sidebar-section { flex: 1; min-width: 150px; padding: 12px; }
-  .header-stats { display: none; }
+  .main-content { 
+    flex-direction: column; 
+  }
+  
+  #map-container {
+    /* Account for collapsed sidebar height */
+    padding-bottom: 60px;
+  }
+  
+  .sidebar { 
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 60vh;
+    flex-direction: column;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px 16px 0 0;
+    transform: translateY(calc(100% - 60px));
+    transition: transform 0.3s ease;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.92);
+  }
+  
+  .sidebar.expanded {
+    transform: translateY(0);
+    overflow-y: auto;
+  }
+  
+  .sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    cursor: pointer;
+  }
+  
+  .sidebar-toggle-handle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  
+  .sidebar-toggle-handle span {
+    display: block;
+    width: 28px;
+    height: 3px;
+    background: var(--cf-gray-400);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+  }
+  
+  .sidebar-toggle:hover .sidebar-toggle-handle span,
+  .sidebar-toggle:active .sidebar-toggle-handle span {
+    background: var(--cf-gray-300);
+  }
+  
+  .sidebar-section { 
+    padding: 12px 16px;
+  }
+  
+  /* Hide legend and info panel on mobile by default - show in expanded */
+  /* nth-child(n+5) because: toggle, mode, controls, legend, info */
+  .sidebar:not(.expanded) .sidebar-section:nth-child(n+4) {
+    display: none;
+  }
+  
+  /* Compact mode toggle on mobile */
+  .mode-toggle {
+    padding: 2px;
+  }
+  
+  .mode-btn {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  /* Compact buttons on mobile */
+  .controls {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .btn {
+    padding: 8px 12px;
+    font-size: 11px;
+    flex: 1;
+  }
+  
+  .btn svg {
+    display: none;
+  }
+  
+  /* Adjust zoom controls position for mobile */
+  .zoom-controls {
+    bottom: 80px;
+    right: 12px;
+  }
+  
+  .zoom-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+  
+  /* Adjust click hint for mobile */
+  .click-hint {
+    bottom: 80px;
+    font-size: 11px;
+    padding: 8px 16px;
+  }
+  
+  .header-stats { 
+    display: none; 
+  }
+  
+  /* Smaller header on mobile */
+  header {
+    padding: 8px 16px;
+  }
+  
+  .logo-subtitle {
+    display: none;
+  }
+  
+  .logo-text {
+    font-size: 14px;
+  }
+  
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .logo-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Legend compact on mobile */
+  .legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  
+  .legend-item {
+    font-size: 10px;
+    gap: 6px;
+  }
+  
+  .legend-icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .legend-line {
+    width: 16px;
+  }
+  
+  /* Info panel compact on mobile */
+  .info-panel {
+    padding: 10px;
+  }
+  
+  .info-panel p {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  
+  .section-title {
+    font-size: 9px;
+    margin-bottom: 8px;
+  }
 }
