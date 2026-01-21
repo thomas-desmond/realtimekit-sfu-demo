@@ -1,12 +1,12 @@
-# RealtimeKit SFU Globe Visualization
+# Realtime SFU Globe Visualization
 
-An interactive visualization demonstrating how RealtimeKit uses Cloudflare's global network as a distributed SFU (Selective Forwarding Unit) for real-time audio and video.
+An interactive visualization demonstrating how Realtime uses Cloudflare's global network as a distributed SFU (Selective Forwarding Unit) for real-time audio and video.
 
-![RealtimeKit SFU Demo](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)
+![Realtime SFU Demo](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare)
 
 ## Live Demo
 
-**[View Live Demo](https://realtimekit-sfu-demo.thomas-development.workers.dev)**
+**[View Live Demo](https://realtime-sfu.dev-demos.workers.dev/)**
 
 ## Features
 
@@ -83,7 +83,7 @@ Then open http://localhost:8787
    pnpm deploy
    ```
 
-Your site will be available at `https://realtimekit-sfu-demo.<your-subdomain>.workers.dev`
+Your site will be available at `https://realtime-sfu.<your-subdomain>.workers.dev`
 
 ## Project Structure
 
