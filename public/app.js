@@ -7,6 +7,18 @@ const MAP_BOUNDS = { minLat: -60, maxLat: 85, minLng: -180, maxLng: 180 };
 const ANIMATION_THRESHOLD_PARTICIPANTS = 10;
 const ANIMATION_THRESHOLD_CONNECTIONS = 15;
 
+// Traditional SFU locations (typical cloud provider regions)
+const TRADITIONAL_SFUS = [
+  { id: 'TRAD-USE', name: 'US East (Virginia)', lat: 38.95, lng: -77.45 },
+  { id: 'TRAD-USW', name: 'US West (Oregon)', lat: 45.84, lng: -119.70 },
+  { id: 'TRAD-EUW', name: 'Europe (Frankfurt)', lat: 50.11, lng: 8.68 },
+  { id: 'TRAD-EUN', name: 'Europe (London)', lat: 51.51, lng: -0.13 },
+  { id: 'TRAD-APS', name: 'Asia Pacific (Singapore)', lat: 1.35, lng: 103.82 },
+  { id: 'TRAD-APT', name: 'Asia Pacific (Tokyo)', lat: 35.68, lng: 139.65 },
+  { id: 'TRAD-SAM', name: 'South America (São Paulo)', lat: -23.55, lng: -46.63 },
+  { id: 'TRAD-AUS', name: 'Australia (Sydney)', lat: -33.87, lng: 151.21 },
+];
+
 // =====================================================
 // STATE
 // =====================================================
@@ -16,6 +28,8 @@ let participants = [];
 let participantIdCounter = 0;
 let mode = 'mesh';
 let speakerId = null;
+let architecture = 'distributed'; // 'distributed' or 'traditional'
+let activeTraditionalSFU = null; // The SFU chosen by first participant in traditional mode
 
 // Zoom/Pan state
 let viewBox = { x: 0, y: 0, w: SVG_WIDTH, h: SVG_HEIGHT };
@@ -70,6 +84,16 @@ function findNearestDC(lat, lng) {
   for (const dc of DATACENTERS) {
     const dist = haversineDistance(lat, lng, dc.lat, dc.lng);
     if (dist < minDist) { minDist = dist; nearest = dc; }
+  }
+  return nearest;
+}
+
+function findNearestTraditionalSFU(lat, lng) {
+  let nearest = TRADITIONAL_SFUS[0];
+  let minDist = Infinity;
+  for (const sfu of TRADITIONAL_SFUS) {
+    const dist = haversineDistance(lat, lng, sfu.lat, sfu.lng);
+    if (dist < minDist) { minDist = dist; nearest = sfu; }
   }
   return nearest;
 }
@@ -276,14 +300,37 @@ function drawGraticule(group) {
 }
 
 function drawDatacenters() {
-  for (const dc of DATACENTERS) {
-    const { x, y } = latLngToXY(dc.lat, dc.lng);
-    const g = createSVGElement('g', { class: 'dc-marker', 'data-id': dc.id });
-    g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 5, class: 'dc-ring' }));
-    g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 2.5, class: 'dc-dot' }));
-    g.addEventListener('mouseenter', (e) => showTooltip(e, dc.name, `Cloudflare PoP - ${dc.id}`));
-    g.addEventListener('mouseleave', hideTooltip);
-    gDatacenters.appendChild(g);
+  // Clear existing markers
+  gDatacenters.innerHTML = '';
+  
+  if (architecture === 'distributed') {
+    // Draw all 330 Cloudflare datacenters
+    for (const dc of DATACENTERS) {
+      const { x, y } = latLngToXY(dc.lat, dc.lng);
+      const g = createSVGElement('g', { class: 'dc-marker', 'data-id': dc.id });
+      g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 5, class: 'dc-ring' }));
+      g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 2.5, class: 'dc-dot' }));
+      g.addEventListener('mouseenter', (e) => showTooltip(e, dc.name, `Cloudflare PoP - ${dc.id}`));
+      g.addEventListener('mouseleave', hideTooltip);
+      gDatacenters.appendChild(g);
+    }
+  } else {
+    // Draw only the 8 traditional SFU locations
+    for (const sfu of TRADITIONAL_SFUS) {
+      const { x, y } = latLngToXY(sfu.lat, sfu.lng);
+      const isActive = activeTraditionalSFU && activeTraditionalSFU.id === sfu.id;
+      const g = createSVGElement('g', { 
+        class: `dc-marker traditional-sfu ${isActive ? 'active-sfu' : 'inactive-sfu'}`, 
+        'data-id': sfu.id 
+      });
+      g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 6, class: 'dc-ring' }));
+      g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 3, class: 'dc-dot' }));
+      
+      const status = isActive ? 'Active Meeting Server' : 'Available Region';
+      g.addEventListener('mouseenter', (e) => showTooltip(e, sfu.name, status));
+      g.addEventListener('mouseleave', hideTooltip);
+      gDatacenters.appendChild(g);
+    }
   }
 }
 
@@ -297,7 +344,24 @@ function addParticipant(lat, lng, isSpeaker = false) {
   lat = Math.max(MAP_BOUNDS.minLat, Math.min(MAP_BOUNDS.maxLat, lat));
   lng = Math.max(MAP_BOUNDS.minLng, Math.min(MAP_BOUNDS.maxLng, lng));
 
-  const dc = findNearestDC(lat, lng);
+  let dc;
+  if (architecture === 'distributed') {
+    // Distributed mode: connect to nearest Cloudflare DC
+    dc = findNearestDC(lat, lng);
+  } else {
+    // Traditional mode: first participant picks the server, everyone else follows
+    if (participants.length === 0) {
+      // First participant - find nearest traditional SFU
+      activeTraditionalSFU = findNearestTraditionalSFU(lat, lng);
+      dc = activeTraditionalSFU;
+      // Redraw datacenters to show which one is now active
+      drawDatacenters();
+    } else {
+      // Subsequent participants - connect to the active SFU
+      dc = activeTraditionalSFU;
+    }
+  }
+  
   const id = ++participantIdCounter;
   const p = { id, lat, lng, dcId: dc.id, dc, isSpeaker: isSpeaker || (mode === 'speaker' && participants.length === 0) };
   
@@ -348,7 +412,8 @@ function drawParticipant(p) {
   g.appendChild(createSVGElement('circle', { cx: x, cy: y, r: 4, class: `participant-dot ${p.isSpeaker ? 'speaker' : ''}` }));
   
   const dist = Math.round(haversineDistance(p.lat, p.lng, p.dc.lat, p.dc.lng));
-  g.addEventListener('mouseenter', (e) => showTooltip(e, `Participant ${p.id}`, `Connected to ${p.dc.name} (${dist} km)`));
+  const connectionType = architecture === 'traditional' ? 'Meeting server' : 'Nearest DC';
+  g.addEventListener('mouseenter', (e) => showTooltip(e, `Participant ${p.id}`, `${connectionType}: ${p.dc.name} (${dist} km)`));
   g.addEventListener('mouseleave', hideTooltip);
   gParticipants.appendChild(g);
 }
@@ -361,6 +426,12 @@ function clearParticipants() {
   gConnections.innerHTML = '';
   updateStats();
   document.getElementById('click-hint').classList.remove('hidden');
+  
+  // Reset traditional SFU state and redraw markers
+  if (architecture === 'traditional' && activeTraditionalSFU !== null) {
+    activeTraditionalSFU = null;
+    drawDatacenters();
+  }
 }
 
 function updateStats() {
@@ -393,18 +464,23 @@ function updateConnections() {
   const shouldAnimate = connectionCount <= ANIMATION_THRESHOLD_CONNECTIONS;
   const dcLineClass = `connection-line dc-dc-line${shouldAnimate ? ' animated' : ''}`;
   
+  // Determine line class based on architecture
+  const userLineClass = architecture === 'traditional' 
+    ? 'connection-line user-dc-line traditional' 
+    : 'connection-line user-dc-line';
+  
   // User to DC connections
   for (const p of participants) {
     const pPos = latLngToXY(p.lat, p.lng);
     const dcPos = latLngToXY(p.dc.lat, p.dc.lng);
     gConnections.appendChild(createSVGElement('path', {
       d: createCurvedPath(pPos.x, pPos.y, dcPos.x, dcPos.y, 0.08),
-      class: 'connection-line user-dc-line'
+      class: userLineClass
     }));
   }
   
-  // DC to DC connections
-  if (participants.length >= 2) {
+  // DC to DC connections (only in distributed mode)
+  if (architecture === 'distributed' && participants.length >= 2) {
     if (mode === 'mesh') {
       for (let i = 0; i < activeDCs.length; i++) {
         for (let j = i + 1; j < activeDCs.length; j++) {
@@ -457,6 +533,54 @@ function setMode(newMode) {
   gParticipants.innerHTML = '';
   participants.forEach(drawParticipant);
   updateConnections();
+}
+
+// =====================================================
+// ARCHITECTURE MODE
+// =====================================================
+
+function setArchitecture(newArch) {
+  architecture = newArch;
+  const isTraditional = architecture === 'traditional';
+  
+  // Update toggle buttons
+  document.getElementById('btn-distributed').classList.toggle('active', !isTraditional);
+  document.getElementById('btn-traditional').classList.toggle('active', isTraditional);
+  
+  // Update info panels
+  document.getElementById('info-distributed').style.display = isTraditional ? 'none' : 'block';
+  document.getElementById('info-traditional').style.display = isTraditional ? 'block' : 'none';
+  
+  // Update legend
+  document.getElementById('legend-datacenter').style.display = isTraditional ? 'none' : 'flex';
+  document.getElementById('legend-central-server').style.display = isTraditional ? 'flex' : 'none';
+  document.getElementById('legend-available-region').style.display = isTraditional ? 'flex' : 'none';
+  document.getElementById('legend-user-dc').style.display = isTraditional ? 'none' : 'flex';
+  document.getElementById('legend-user-dc-traditional').style.display = isTraditional ? 'flex' : 'none';
+  document.getElementById('legend-backbone').style.display = isTraditional ? 'none' : 'flex';
+  
+  // Update architecture note
+  const archNote = document.getElementById('arch-note');
+  if (isTraditional) {
+    archNote.textContent = 'Not Cloudflare — simulates competitor architecture';
+    archNote.style.display = 'block';
+  } else {
+    archNote.textContent = '';
+    archNote.style.display = 'none';
+  }
+  
+  // Add/remove body class for visual differentiation
+  document.body.classList.toggle('traditional-mode', isTraditional);
+  
+  // Clear all participants and reset state when switching modes
+  clearParticipants();
+  activeTraditionalSFU = null;
+  
+  // Redraw datacenter markers for the new architecture
+  drawDatacenters();
+  
+  // Show click hint again
+  document.getElementById('click-hint').classList.remove('hidden');
 }
 
 // =====================================================
@@ -696,6 +820,10 @@ function handleTouchEnd() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
+  
+  // Architecture buttons
+  document.getElementById('btn-distributed').addEventListener('click', () => setArchitecture('distributed'));
+  document.getElementById('btn-traditional').addEventListener('click', () => setArchitecture('traditional'));
   
   // Mode buttons
   document.getElementById('btn-mesh').addEventListener('click', () => setMode('mesh'));

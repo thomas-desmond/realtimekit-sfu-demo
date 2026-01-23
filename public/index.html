@@ -69,6 +69,15 @@
           </div>
         </div>
         <div class="sidebar-section">
+          <div class="section-title">Architecture</div>
+          <div class="mode-toggle">
+            <button class="mode-btn active" data-arch="distributed" id="btn-distributed">Cloudflare Distributed</button>
+            <button class="mode-btn" data-arch="traditional" id="btn-traditional">Traditional SFU</button>
+          </div>
+          <div class="architecture-note" id="arch-note"></div>
+        </div>
+
+        <div class="sidebar-section">
           <div class="section-title">Connection Mode</div>
           <div class="mode-toggle">
             <button class="mode-btn active" data-mode="mesh" id="btn-mesh">Full Mesh</button>
@@ -98,9 +107,17 @@
         <div class="sidebar-section">
           <div class="section-title">Legend</div>
           <div class="legend">
-            <div class="legend-item">
+            <div class="legend-item" id="legend-datacenter">
               <div class="legend-icon"><div class="legend-dot datacenter"></div></div>
               <span>Cloudflare Datacenter</span>
+            </div>
+            <div class="legend-item" id="legend-central-server" style="display: none;">
+              <div class="legend-icon"><div class="legend-dot central-server"></div></div>
+              <span>Meeting Server (Active)</span>
+            </div>
+            <div class="legend-item" id="legend-available-region" style="display: none;">
+              <div class="legend-icon"><div class="legend-dot available-region"></div></div>
+              <span>Available Region (Unused)</span>
             </div>
             <div class="legend-item">
               <div class="legend-icon"><div class="legend-dot participant"></div></div>
@@ -110,11 +127,15 @@
               <div class="legend-icon"><div class="legend-dot speaker"></div></div>
               <span>Speaker (Broadcasting)</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" id="legend-user-dc">
               <div class="legend-icon"><div class="legend-line user-dc"></div></div>
               <span>User to Datacenter</span>
             </div>
-            <div class="legend-item">
+            <div class="legend-item" id="legend-user-dc-traditional" style="display: none;">
+              <div class="legend-icon"><div class="legend-line user-dc-traditional"></div></div>
+              <span>User to Server</span>
+            </div>
+            <div class="legend-item" id="legend-backbone">
               <div class="legend-icon"><div class="legend-line dc-dc"></div></div>
               <span>Backbone (DC to DC)</span>
             </div>
@@ -123,10 +144,15 @@
 
         <div class="sidebar-section">
           <div class="section-title">How It Works</div>
-          <div class="info-panel">
+          <div class="info-panel" id="info-distributed">
             <p><strong>Anycast Routing:</strong> Users connect to their nearest datacenter automatically.</p>
             <p><strong>Global SFU:</strong> Media routes through Cloudflare's backbone - no central server.</p>
             <p><strong>Edge Processing:</strong> Packet recovery at the edge for lower latency.</p>
+          </div>
+          <div class="info-panel" id="info-traditional" style="display: none;">
+            <p><strong>First Participant Decides:</strong> Meeting server chosen based on first person to join.</p>
+            <p><strong>Distance = Latency:</strong> Later participants far from the server experience higher latency.</p>
+            <p><strong>Single Point of Failure:</strong> All traffic depends on one location.</p>
           </div>
         </div>
       </aside>

@@ -407,6 +407,7 @@ header {
 
 .legend-line { width: 20px; height: 2px; border-radius: 2px; }
 .legend-line.user-dc { background: var(--cf-orange); }
+.legend-line.user-dc-traditional { background: #6B7280; }
 .legend-line.dc-dc {
   background: repeating-linear-gradient(90deg, var(--backbone-yellow) 0, var(--backbone-yellow) 3px, transparent 3px, transparent 6px);
 }
@@ -667,4 +668,101 @@ header {
     font-size: 9px;
     margin-bottom: 8px;
   }
+}
+
+/* =====================================================
+   TRADITIONAL SFU MODE STYLES
+   Visual differentiation to show this is NOT Cloudflare
+   ===================================================== */
+
+/* Architecture note styling */
+.architecture-note {
+  display: none;
+  font-size: 10px;
+  color: #9CA3AF;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(156, 163, 175, 0.1);
+  border-radius: 4px;
+  font-style: italic;
+}
+
+/* Traditional mode info panel - muted gray instead of orange */
+#info-traditional {
+  background: rgba(156, 163, 175, 0.1);
+  border-color: rgba(156, 163, 175, 0.3);
+}
+
+#info-traditional strong {
+  color: #9CA3AF;
+}
+
+/* Central server legend dot */
+.legend-dot.central-server {
+  background: #9CA3AF;
+  box-shadow: 0 0 8px #9CA3AF;
+  width: 12px;
+  height: 12px;
+}
+
+/* Available region legend dot (unused traditional SFU) */
+.legend-dot.available-region {
+  background: #4B5563;
+  width: 10px;
+  height: 10px;
+  opacity: 0.6;
+}
+
+/* Traditional mode body class - affects global styling */
+body.traditional-mode {
+  /* Subtle background shift */
+}
+
+/* Traditional SFU markers - gray color scheme */
+.dc-marker.traditional-sfu .dc-dot {
+  fill: #6B7280;
+}
+
+.dc-marker.traditional-sfu .dc-ring {
+  stroke: #6B7280;
+  fill: none;
+  stroke-width: 1;
+}
+
+/* Inactive traditional SFU (available but not chosen) */
+.dc-marker.traditional-sfu.inactive-sfu .dc-dot {
+  fill: #4B5563;
+}
+
+.dc-marker.traditional-sfu.inactive-sfu .dc-ring {
+  stroke: #4B5563;
+  opacity: 0.5;
+}
+
+/* Active traditional SFU (chosen by first participant) */
+.dc-marker.traditional-sfu.active-sfu .dc-dot {
+  fill: #9CA3AF;
+}
+
+.dc-marker.traditional-sfu.active-sfu .dc-ring {
+  stroke: #9CA3AF;
+  stroke-width: 1.5;
+  animation: central-pulse 2s ease-out infinite;
+}
+
+@keyframes central-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Traditional mode connection lines - muted color */
+.connection-line.user-dc-line.traditional {
+  stroke: #6B7280;
+  opacity: 0.6;
+}
+
+/* Traditional mode toggle button - different active color */
+body.traditional-mode #btn-traditional.active {
+  background: #6B7280;
 }
